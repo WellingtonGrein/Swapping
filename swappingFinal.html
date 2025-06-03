@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Memória Virtual e Swapping</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient-start: #232931;
+            --bg-gradient-end: #1a1f25;
+            --card-bg: #2a3038;
+            --panel-bg: #39424e;
+            --text-primary: #e1e1e1;
+            --text-secondary: #a9b4c2;
+            --accent-primary: #26a69a;
+            --accent-primary-hover: #00897b;
+            --accent-secondary: #ff7043;
+            --accent-secondary-hover: #f4511e;
+            --border-color: #4a5560;
+            --input-bg: #2f363e;
+            --input-border-focus: var(--accent-primary);
+            --shadow-color-light: rgba(255, 255, 255, 0.05);
+            --shadow-color-dark: rgba(0, 0, 0, 0.3);
+            --log-bg: #1e2227;
+            --log-text: #c5cdd3;
+            --log-highlight: rgba(255, 255, 255, 0.03);
+            --process-main-bg: var(--accent-primary);
+            --process-swap-bg: #607d8b;
+            --status-badge-bg: #546e7a;
+            --radius-sm: 5px;
+            --radius-md: 10px;
+            --radius-lg: 15px;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.7;
+            margin: 0;
+            padding: 40px 20px;
+            background-image: linear-gradient(145deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: var(--card-bg);
+            padding: 40px;
+            border-radius: var(--radius-lg);
+            box-shadow: 0 15px 35px var(--shadow-color-dark),
+                        inset 0 1px 0 var(--shadow-color-light);
+            width: 100%;
+            max-width: 900px;
+            margin-bottom: 30px;
+        }
+        h1, h2, h3 {
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+        }
+        h1 {
+            font-size: 2.1rem;
+            text-align: center;
+            padding-bottom: 1.25rem;
+            margin-bottom: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+            letter-spacing: 0.5px;
+        }
+        h3 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            margin-bottom: 35px;
+            padding: 25px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            min-width: 180px;
+        }
+        label {
+            margin-bottom: 10px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        input[type="number"], input[type="text"] {
+            padding: 12px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--input-border-focus);
+            box-shadow: 0 0 0 3px rgba(38, 166, 154, 0.3), inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        button {
+            padding: 12px 22px;
+            color: white;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+            box-shadow: 0 3px 7px var(--shadow-color-dark);
+            height: fit-content;
+            align-self: flex-end;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px var(--shadow-color-dark);
+        }
+        button:active {
+            transform: translateY(0px);
+            box-shadow: 0 2px 5px var(--shadow-color-dark);
+        }
+        .btn-primary {
+            background-color: var(--accent-primary);
+        }
+        .btn-primary:hover {
+            background-color: var(--accent-primary-hover);
+        }
+        .btn-success {
+            background-color: var(--accent-secondary);
+        }
+        .btn-success:hover {
+            background-color: var(--accent-secondary-hover);
+        }
+        .memory-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+        .memory-area {
+            border: 1px solid var(--border-color);
+            padding: 25px;
+            border-radius: var(--radius-md);
+            background-color: var(--panel-bg);
+            box-shadow: 0 8px 20px var(--shadow-color-dark);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease-out;
+        }
+        .memory-area:hover {
+            transform: scale(1.015);
+        }
+        .memory-area h3 {
+            margin-top: 0;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .process-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            min-height: 80px;
+            align-items: center;
+            align-content: flex-start;
+            padding: 15px;
+            background-color: var(--input-bg);
+            border-radius: var(--radius-sm);
+            flex-grow: 1;
+            border: 1px dashed rgba(255,255,255,0.1);
+        }
+        .process-block {
+            color: white;
+            padding: 9px 15px;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            font-size: 0.9em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+        #mainMemory .process-block {
+            background-color: var(--process-main-bg);
+        }
+        #swapArea .process-block {
+            background-color: var(--process-swap-bg);
+        }
+        .process-block:hover {
+            transform: translateY(-2px) scale(1.03);
+            filter: brightness(1.1);
+        }
+        .process-list div[style*="color: var("] {
+            color: var(--text-secondary) !important;
+            font-style: italic;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .log {
+            margin-top: 40px;
+            padding: 25px;
+            background-color: var(--log-bg);
+            border-radius: var(--radius-md);
+            color: var(--log-text);
+            max-height: 280px;
+            overflow-y: auto;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.875em;
+            box-shadow: inset 0 3px 8px rgba(0,0,0,0.3), 0 1px 0 var(--shadow-color-light);
+            border: 1px solid #000;
+        }
+        .log p {
+            margin: 8px 0;
+            line-height: 1.6;
+            padding: 6px 10px;
+            border-radius: 3px;
+        }
+        .log p:nth-child(odd) {
+            background-color: var(--log-highlight);
+        }
+        .log p[style*="color: #ff6b6b"] {
+            color: #ff8a80 !important;
+            font-weight: 500;
+            background-color: rgba(255, 138, 128, 0.1) !important;
+        }
+        .log p[style*="color: #51cf66"] {
+            color: #a5d6a7 !important;
+            font-weight: 500;
+            background-color: rgba(165, 214, 167, 0.1) !important;
+        }
+        .status-badge {
+            background-color: var(--status-badge-bg);
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 15px;
+            }
+            .container {
+                padding: 25px;
+            }
+            h1 {
+                font-size: 1.7rem;
+                margin-bottom: 1.5rem;
+            }
+            .memory-display {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            .panel {
+                flex-direction: column;
+                gap: 20px;
+                padding: 20px;
+            }
+            button {
+                align-self: stretch;
+                padding: 14px 20px;
+            }
+            .control-group {
+                min-width: unset;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Simulador de Memória Virtual e Swapping</h1>
+
+        <div class="panel">
+            <div class="control-group">
+                <label for="memSize">Capacidade da Memória Principal</label>
+                <input type="number" id="memSize" value="3" min="1">
+            </div>
+            <button id="btnSetMemSize" class="btn-primary">Configurar Memória</button>
+        </div>
+
+        <div class="panel">
+            <div class="control-group">
+                <label for="processId">ID do Novo Processo</label>
+                <input type="text" id="processId">
+            </div>
+            <button id="btnAddProcess" class="btn-primary">Adicionar Processo</button>
+
+            <div class="control-group">
+                <label for="swapProcessId">Processo no Swap</label>
+                <div style="display: flex; gap: 10px; align-items: flex-end;">
+                    <input type="text" id="swapProcessId" style="flex-grow: 1;">
+                    <button id="btnReturnFromSwap" class="btn-success">Retornar à Memória</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="memory-display">
+            <div class="memory-area">
+                <h3>Memória Principal <span class="status-badge" id="currentMemSize">0</span>/<span id="maxMemSize">0</span></h3>
+                <div id="mainMemory" class="process-list">
+                    <div style="color: var(--text-secondary);">Vazio</div>
+                </div>
+            </div>
+
+            <div class="memory-area swap-area">
+                <h3>Área de Swap <span class="status-badge" id="swapCount">0</span></h3>
+                <div id="swapArea" class="process-list">
+                    <div style="color: var(--text-secondary);">Vazio</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="log" id="logArea">
+        </div>
+    </div>
+
+    <script>
+        let mainMemory = [];
+        let swapArea = [];
+        let memoryCapacity = 3;
+
+        const memSizeInput = document.getElementById('memSize');
+        const btnSetMemSize = document.getElementById('btnSetMemSize');
+        const processIdInput = document.getElementById('processId');
+        const btnAddProcess = document.getElementById('btnAddProcess');
+        const swapProcessIdInput = document.getElementById('swapProcessId');
+        const btnReturnFromSwap = document.getElementById('btnReturnFromSwap');
+
+        const mainMemoryDiv = document.getElementById('mainMemory');
+        const swapAreaDiv = document.getElementById('swapArea');
+        const logArea = document.getElementById('logArea');
+        const currentMemSizeSpan = document.getElementById('currentMemSize');
+        const maxMemSizeSpan = document.getElementById('maxMemSize');
+        const swapCountSpan = document.getElementById('swapCount');
+
+        function initializeSimulator() {
+            const capacity = parseInt(memSizeInput.value);
+            if (isNaN(capacity) || capacity < 1) {
+                showMessage("Por favor, insira uma capacidade válida para a memória principal (mínimo 1).", "error");
+                memSizeInput.value = memoryCapacity;
+                return;
+            }
+            memoryCapacity = capacity;
+            mainMemory = [];
+            swapArea = [];
+            processIdInput.value = '';
+            swapProcessIdInput.value = '';
+            if (logArea.children.length === 0) {
+                 showMessage("Sistema pronto. Configure a memória e adicione processos!", "info");
+            } else {
+                showMessage(`Memória configurada! Capacidade: ${memoryCapacity} processos.`, "success");
+            }
+            updateDisplay();
+        }
+
+        function showMessage(message, type = "info") {
+            const p = document.createElement('p');
+            let prefix = "➡️";
+            if (type === "error") {
+                prefix = "❌";
+                p.style.color = "#ff6b6b";
+            } else if (type === "success") {
+                prefix = "✅";
+                p.style.color = "#51cf66";
+            } else if (type === "info") {
+                prefix = "💡";
+            }
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${prefix} ${message}`;
+            logArea.appendChild(p);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function updateDisplay() {
+            mainMemoryDiv.innerHTML = '';
+            if (mainMemory.length === 0) {
+                mainMemoryDiv.innerHTML = '<div style="color: var(--text-secondary);">Vazio</div>';
+            } else {
+                mainMemory.forEach(proc => {
+                    const block = document.createElement('div');
+                    block.className = 'process-block';
+                    block.textContent = proc;
+                    mainMemoryDiv.appendChild(block);
+                });
+            }
+
+            swapAreaDiv.innerHTML = '';
+            if (swapArea.length === 0) {
+                swapAreaDiv.innerHTML = '<div style="color: var(--text-secondary);">Vazio</div>';
+            } else {
+                swapArea.forEach(proc => {
+                    const block = document.createElement('div');
+                    block.className = 'process-block';
+                    block.textContent = proc;
+                    swapAreaDiv.appendChild(block);
+                });
+            }
+
+            currentMemSizeSpan.textContent = mainMemory.length;
+            maxMemSizeSpan.textContent = memoryCapacity;
+            swapCountSpan.textContent = swapArea.length;
+        }
+
+        function addProcess() {
+            const processId = processIdInput.value.trim();
+            if (!processId) {
+                showMessage("Ops! Você esqueceu de digitar o ID do processo.", "error");
+                processIdInput.focus();
+                return;
+            }
+
+            if (mainMemory.includes(processId) || swapArea.includes(processId)) {
+                 showMessage(`O processo "${processId}" já está na memória ou no swap.`, "error");
+                 processIdInput.value = '';
+                 processIdInput.focus();
+                 return;
+            }
+
+            showMessage(`Adicionando novo processo: "${processId}"`);
+
+            if (mainMemory.length < memoryCapacity) {
+                mainMemory.push(processId);
+                showMessage(`Processo "${processId}" carregado na memória principal.`, "success");
+            } else {
+                const oldestProcess = mainMemory.shift();
+                swapArea.push(oldestProcess);
+                showMessage(`Memória cheia! Processo "${oldestProcess}" movido para o swap.`);
+                mainMemory.push(processId);
+                showMessage(`Processo "${processId}" alocado na memória principal.`, "success");
+            }
+            processIdInput.value = '';
+            processIdInput.focus();
+            updateDisplay();
+        }
+
+        function returnFromSwap() {
+            const processIdToReturn = swapProcessIdInput.value.trim();
+            if (!processIdToReturn) {
+                showMessage("Qual processo você quer trazer do swap?", "error");
+                swapProcessIdInput.focus();
+                return;
+            }
+
+            const indexInSwap = swapArea.indexOf(processIdToReturn);
+            if (indexInSwap === -1) {
+                showMessage(`Processo "${processIdToReturn}" não encontrado no swap.`, "error");
+                swapProcessIdInput.value = '';
+                swapProcessIdInput.focus();
+                return;
+            }
+
+            swapArea.splice(indexInSwap, 1);
+            showMessage(`Processo "${processIdToReturn}" removido do swap.`);
+            
+            if (mainMemory.length < memoryCapacity) {
+                mainMemory.push(processIdToReturn);
+                showMessage(`Processo "${processIdToReturn}" retornou para a memória principal.`, "success");
+            } else {
+                const oldestProcess = mainMemory.shift();
+                swapArea.push(oldestProcess);
+                showMessage(`Memória cheia! Processo "${oldestProcess}" movido para o swap.`);
+                mainMemory.push(processIdToReturn);
+                showMessage(`Processo "${processIdToReturn}" retornou para a memória principal.`, "success");
+            }
+            swapProcessIdInput.value = '';
+            swapProcessIdInput.focus();
+            updateDisplay();
+        }
+
+        btnSetMemSize.addEventListener('click', initializeSimulator);
+        btnAddProcess.addEventListener('click', addProcess);
+        btnReturnFromSwap.addEventListener('click', returnFromSwap);
+        
+        memSizeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                btnSetMemSize.click();
+            }
+        });
+
+        processIdInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                btnAddProcess.click();
+            }
+        });
+        
+        swapProcessIdInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                btnReturnFromSwap.click();
+            }
+        });
+
+        window.onload = function() {
+            initializeSimulator();
+            processIdInput.focus(); 
+        };
+    </script>
+</body>
+</html>
